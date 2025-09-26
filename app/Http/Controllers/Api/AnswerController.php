@@ -7,6 +7,7 @@ use App\Models\Answer;
 use App\Models\Question;
 use App\Models\UserAnswer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AnswerController extends Controller
@@ -185,44 +186,95 @@ class AnswerController extends Controller
     }
 
     public function submitAnswers(Request $request)
-{
-    try {
-        $data = $request->validate([
-            'answers' => 'required|array|min:1',
-            'answers.*.user_id' => 'required|exists:users,id',
-            'answers.*.question_id' => 'required|exists:questions,id',
-            'answers.*.answer_id' => 'required|exists:answers,id',
-        ]);
+    {
+        try {
+            $data = $request->validate([
+                'answers' => 'required|array|min:1',
+                'answers.*.user_id' => 'required|exists:users,id',
+                'answers.*.question_id' => 'required|exists:questions,id',
+                'answers.*.answer_id' => 'required|exists:answers,id',
+            ]);
 
-        foreach ($data['answers'] as $answerData) {
-            $answer = Answer::where('id', $answerData['answer_id'])
-                ->where('question_id', $answerData['question_id'])
-                ->firstOrFail();
+            foreach ($data['answers'] as $answerData) {
+                $answer = Answer::where('id', $answerData['answer_id'])
+                    ->where('question_id', $answerData['question_id'])
+                    ->firstOrFail();
 
-            $isCorrect = $answer->is_correct;
+                $isCorrect = $answer->is_correct;
 
-            UserAnswer::updateOrCreate(
-                [
-                    'user_id' => $answerData['user_id'],
-                    'question_id' => $answerData['question_id'],
-                ],
-                [
-                    'answer_id' => $answerData['answer_id'],
-                    'is_correct' => $isCorrect,
-                ]
-            );
+                UserAnswer::updateOrCreate(
+                    [
+                        'user_id' => $answerData['user_id'],
+                        'question_id' => $answerData['question_id'],
+                    ],
+                    [
+                        'answer_id' => $answerData['answer_id'],
+                        'is_correct' => $isCorrect,
+                    ]
+                );
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Réponses enregistrées avec succès.',
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => false,
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString(),
+                'data_received' => $request->all(),
+            ], 400);
         }
+    }
+
+    public function getUserScore(Request $request)
+    {
+        $user = Auth::user(); // utilisateur connecté
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur non authentifié',
+            ], 401);
+        }
+
+        // Score total (toutes réponses correctes)
+        $totalScore = UserAnswer::where('user_id', $user->id)
+            ->where('is_correct', true)
+            ->join('questions', 'user_answers.question_id', '=', 'questions.id')
+            ->sum('questions.marke');
+
+        // Score par thème
+        $scoreByTheme = UserAnswer::select(
+            'level_themes.name as level_theme',
+            DB::raw('SUM(questions.marke) as total_points')
+        )
+            ->where('user_answers.user_id', $user->id)
+            ->where('user_answers.is_correct', true)
+            ->join('questions', 'user_answers.question_id', '=', 'questions.id')
+            ->join('level_themes', 'questions.level_theme_id', '=', 'level_themes.id')
+            ->groupBy('level_themes.name')
+            ->get();
+
+        // Score par niveau
+        $scoreByLevel = UserAnswer::select(
+            'levels.name as level',
+            DB::raw('SUM(questions.marke) as total_points')
+        )
+            ->where('user_answers.user_id', $user->id)
+            ->where('user_answers.is_correct', true)
+            ->join('questions', 'user_answers.question_id', '=', 'questions.id')
+            ->join('level_themes', 'questions.level_theme_id', '=', 'level_themes.id')
+            ->join('levels', 'level_themes.level_id', '=', 'levels.id')
+            ->groupBy('levels.name')
+            ->get();
 
         return response()->json([
             'success' => true,
-            'message' => 'Réponses enregistrées avec succès.',
+            'total_score' => $totalScore,
+            'score_by_theme' => $scoreByTheme,
+            'score_by_level' => $scoreByLevel,
         ]);
-    } catch (\Throwable $th) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Erreur : ' . $th->getMessage(),
-        ], 400);
     }
-}
-
 }

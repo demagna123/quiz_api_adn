@@ -30,33 +30,36 @@ class AuthController extends Controller
     }
 
 
-    public function login(Request $request)
-    {
-        try {
-            $request->validate([
-                'email' => 'required|email',
-            ]);
+   public function login(Request $request)
+{
+    try {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
 
-            $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)->first();
 
-            if ($user) {
-                Auth::login($user);
+        if ($user) {
+            // Crée un token d'API pour l'utilisateur (Sanctum)
+            $token = $user->createToken('mobile-token')->plainTextToken;
 
-                return response()->json([
-                    'exists' => true,
-                    'message' => "Utilisateur connecté avec succès",
-                    // 'token' => $user->createToken('api_token')->plainTextToken // si tu veux ajouter l’auth
-                ], 200);
-            } else {
-                return response()->json([
-                    'exists' => false,
-                    'message' => "Email non inscrit",
-                ], 200);
-            }
-        } catch (\Throwable $th) {
             return response()->json([
-                'error' => $th->getMessage()
-            ], 500);
+                'exists' => true,
+                'message' => "Utilisateur connecté avec succès",
+                'user' => $user,
+                'token' => $token,  // <-- token pour la suite des requêtes
+            ], 200);
+        } else {
+            return response()->json([
+                'exists' => false,
+                'message' => "Email non inscrit",
+            ], 200);
         }
+    } catch (\Throwable $th) {
+        return response()->json([
+            'error' => $th->getMessage()
+        ], 500);
     }
+}
+
 }

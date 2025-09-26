@@ -19,3 +19,5 @@ Route::apiResource('/levels', LevelController::class);
 Route::apiResource('/themes', LevelThemeController::class);
 Route::post('/answers/submitAnswer', [AnswerController::class, 'submitAnswer']);
 Route::post('/answers/submitAnswers', [AnswerController::class, 'submitAnswers']);
+Route::middleware('auth:sanctum')->get('/user/score', [AnswerController::class, 'getUserScore']);
+
