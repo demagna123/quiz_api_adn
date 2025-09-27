@@ -30,36 +30,56 @@ class AuthController extends Controller
     }
 
 
-   public function login(Request $request)
-{
-    try {
-        $request->validate([
-            'email' => 'required|email',
-        ]);
+    public function login(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email',
+            ]);
 
-        $user = User::where('email', $request->email)->first();
+            $user = User::where('email', $request->email)->first();
 
-        if ($user) {
-            // Crée un token d'API pour l'utilisateur (Sanctum)
-            $token = $user->createToken('mobile-token')->plainTextToken;
+            if ($user) {
+                // Crée un token d'API pour l'utilisateur (Sanctum)
+                $token = $user->createToken('mobile-token')->plainTextToken;
 
+                return response()->json([
+                    'exists' => true,
+                    'message' => "Utilisateur connecté avec succès",
+                    'user' => $user,
+                    'token' => $token,  // <-- token pour la suite des requêtes
+                ], 200);
+            } else {
+                return response()->json([
+                    'exists' => false,
+                    'message' => "Email non inscrit",
+                ], 200);
+            }
+        } catch (\Throwable $th) {
             return response()->json([
-                'exists' => true,
-                'message' => "Utilisateur connecté avec succès",
-                'user' => $user,
-                'token' => $token,  // <-- token pour la suite des requêtes
-            ], 200);
-        } else {
-            return response()->json([
-                'exists' => false,
-                'message' => "Email non inscrit",
-            ], 200);
+                'error' => $th->getMessage()
+            ], 500);
         }
-    } catch (\Throwable $th) {
-        return response()->json([
-            'error' => $th->getMessage()
-        ], 500);
     }
-}
+    public function updateProfile(Request $request ,$id){
 
+         try {
+            $request->validate([
+                'email' => 'required|email',
+                'name' => 'required',
+            ]);
+
+            User::find($id)->update($request->all());
+            return response()->json([
+                "message" => "User cree avec succès",
+            ], 200);
+        } catch (\Throwable $th) {
+            return $th;
+            return response()->json([
+                "message" => "Error lors de l'inscription",
+            ], 400);
+        }
+
+        
+    }
 }

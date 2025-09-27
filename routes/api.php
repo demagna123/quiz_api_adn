@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 // })->middleware('auth:sanctum');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
+Route::put('/update/{id}', [AuthController::class, 'updateProfile']);
 Route::apiResource('/questions', QuestionController::class);
 Route::apiResource('/answers', AnswerController::class);
 Route::apiResource('/levels', LevelController::class);
